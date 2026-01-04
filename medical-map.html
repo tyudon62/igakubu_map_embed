@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本の医学部マップ</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', sans-serif;
+            background: #f5f5f7;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* メニューバー */
+        .menu-bar {
+            height: 48px;
+            background: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .menu-logo {
+            font-size: 18px;
+            margin-right: 6px;
+        }
+        
+        .menu-title {
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .menu-divider {
+            width: 1px;
+            height: 20px;
+            background: rgba(255,255,255,0.2);
+            margin: 0 6px;
+        }
+        
+        .menu-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .menu-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .menu-stats {
+            display: flex;
+            gap: 12px;
+            margin-left: auto;
+            font-size: 10px;
+        }
+        
+        .menu-stat {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .menu-stat span {
+            color: white;
+            font-weight: 600;
+        }
+        
+        /* メインコンテナ */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 48px);
+        }
+        
+        /* サイドバー */
+        .sidebar {
+            width: 340px;
+            background: white;
+            border-right: 1px solid #e5e5e7;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 12px;
+            border-bottom: 1px solid #e5e5e7;
+            background: #fafafa;
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: #f0f0f2;
+            border-radius: 8px;
+            padding: 8px 12px;
+            gap: 6px;
+        }
+        
+        .search-box input {
+            border: none;
+            background: transparent;
+            flex: 1;
+            font-size: 13px;
+            outline: none;
+        }
+        
+        .filter-section {
+            margin-top: 10px;
+        }
+        
+        .filter-label {
+            font-size: 10px;
+            color: #86868b;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .filter-tabs {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-tab {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f0f0f2;
+            color: #1d1d1f;
+        }
+        
+        .filter-tab:hover {
+            background: #e5e5e7;
+        }
+        
+        .filter-tab.active {
+            color: white;
+        }
+        
+        .filter-tab.active[data-filter="all"] { background: #1d1d1f; }
+        .filter-tab.active[data-filter="national"] { background: #0071e3; }
+        .filter-tab.active[data-filter="public"] { background: #34c759; }
+        .filter-tab.active[data-filter="private"] { background: #ff3b30; }
+        .filter-tab.active[data-filter="rankS"] { background: #9c27b0; }
+        .filter-tab.active[data-filter="rankA"] { background: #ff9800; }
+        .filter-tab.active[data-filter="rankB"] { background: #2196f3; }
+        .filter-tab.active[data-filter="rankC"] { background: #607d8b; }
+        
+        .filter-count {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #86868b;
+        }
+        
+        .filter-count span {
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        /* 大学リスト */
+        .university-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+        }
+        
+        .university-item {
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 3px;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        
+        .university-item:hover {
+            background: #f5f5f7;
+        }
+        
+        .university-item.selected {
+            background: #e3f2fd;
+            border-color: #0071e3;
+        }
+        
+        .university-item.has-memo::after {
+            content: "📝";
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 11px;
+        }
+        
+        .uni-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 3px;
+        }
+        
+        .uni-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .uni-dot.national { background: #0071e3; }
+        .uni-dot.public { background: #34c759; }
+        .uni-dot.private { background: #ff3b30; }
+        
+        .uni-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .uni-badges {
+            display: flex;
+            gap: 3px;
+            margin-left: auto;
+        }
+        
+        .uni-type {
+            font-size: 9px;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        .uni-type.national { background: #e3f2fd; color: #0071e3; }
+        .uni-type.public { background: #e8f5e9; color: #2e7d32; }
+        .uni-type.private { background: #ffebee; color: #c62828; }
+        
+        .uni-rank {
+            font-size: 9px;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .uni-rank.S { background: #9c27b0; }
+        .uni-rank.A { background: #ff9800; }
+        .uni-rank.B { background: #2196f3; }
+        .uni-rank.C { background: #607d8b; }
+        
+        .uni-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 14px;
+            font-size: 10px;
+            color: #86868b;
+        }
+        
+        .uni-deviation {
+            color: #1d1d1f;
+            font-weight: 600;
+        }
+        
+        .uni-address {
+            font-size: 10px;
+            color: #86868b;
+            margin-left: 14px;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .uni-memo-preview {
+            font-size: 10px;
+            color: #6e6e73;
+            margin-left: 14px;
+            margin-top: 4px;
+            padding: 4px 6px;
+            background: #fffde7;
+            border-radius: 3px;
+            border-left: 2px solid #ffc107;
+        }
+        
+        /* マップエリア */
+        .map-area {
+            flex: 1;
+            position: relative;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* ホバー詳細パネル */
+        .hover-panel {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 300px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+            z-index: 1000;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+        
+        .hover-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        
+        .hover-header {
+            padding: 16px;
+            color: white;
+        }
+        
+        .hover-header.national { background: linear-gradient(135deg, #0071e3 0%, #00c6ff 100%); }
+        .hover-header.public { background: linear-gradient(135deg, #34c759 0%, #7bed9f 100%); }
+        .hover-header.private { background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%); }
+        
+        .hover-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+        
+        .hover-name {
+            font-size: 17px;
+            font-weight: 600;
+        }
+        
+        .hover-rank-badge {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-weight: 700;
+            background: rgba(255,255,255,0.25);
+        }
+        
+        .hover-meta {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .hover-body {
+            padding: 14px 16px;
+        }
+        
+        .hover-deviation-box {
+            background: #f5f5f7;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .hover-deviation-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1d1d1f;
+        }
+        
+        .hover-deviation-label {
+            font-size: 10px;
+            color: #86868b;
+        }
+        
+        .hover-deviation-rank {
+            margin-left: auto;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 6px;
+            color: white;
+        }
+        
+        .hover-deviation-rank.S { background: linear-gradient(135deg, #9c27b0, #e040fb); }
+        .hover-deviation-rank.A { background: linear-gradient(135deg, #ff9800, #ffb74d); }
+        .hover-deviation-rank.B { background: linear-gradient(135deg, #2196f3, #64b5f6); }
+        .hover-deviation-rank.C { background: linear-gradient(135deg, #607d8b, #90a4ae); }
+        
+        .hover-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .hover-icon {
+            font-size: 12px;
+            width: 18px;
+            text-align: center;
+        }
+        
+        .hover-label {
+            font-size: 9px;
+            color: #86868b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .hover-value {
+            font-size: 12px;
+            color: #1d1d1f;
+            line-height: 1.4;
+        }
+        
+        /* メモセクション */
+        .memo-section {
+            border-top: 1px solid #e5e5e7;
+            padding: 12px 16px;
+            background: #fffde7;
+        }
+        
+        .memo-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        
+        .memo-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .memo-edit-btn {
+            background: none;
+            border: none;
+            color: #0071e3;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 3px 6px;
+            border-radius: 3px;
+        }
+        
+        .memo-edit-btn:hover {
+            background: rgba(0,113,227,0.1);
+        }
+        
+        .memo-content {
+            font-size: 11px;
+            color: #6e6e73;
+            line-height: 1.4;
+        }
+        
+        .memo-empty {
+            font-size: 11px;
+            color: #aeaeb2;
+            font-style: italic;
+        }
+        
+        /* メモ編集モーダル */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal {
+            width: 420px;
+            max-width: 90vw;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+        
+        .modal-overlay.visible .modal {
+            transform: scale(1);
+        }
+        
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e5e7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 22px;
+            color: #86868b;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-uni-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f5f5f7;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .modal-uni-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+        }
+        
+        .modal-uni-dot.national { background: #0071e3; }
+        .modal-uni-dot.public { background: #34c759; }
+        .modal-uni-dot.private { background: #ff3b30; }
+        
+        .modal-uni-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .modal-uni-rank {
+            margin-left: auto;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .modal-uni-rank.S { background: #9c27b0; }
+        .modal-uni-rank.A { background: #ff9800; }
+        .modal-uni-rank.B { background: #2196f3; }
+        .modal-uni-rank.C { background: #607d8b; }
+        
+        .memo-textarea {
+            width: 100%;
+            height: 120px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .memo-textarea:focus {
+            border-color: #0071e3;
+        }
+        
+        .modal-footer {
+            padding: 14px 20px;
+            border-top: 1px solid #e5e5e7;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .modal-btn {
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .modal-btn.cancel {
+            background: #f0f0f2;
+            border: none;
+            color: #1d1d1f;
+        }
+        
+        .modal-btn.save {
+            background: #0071e3;
+            border: none;
+            color: white;
+        }
+        
+        .modal-btn.delete {
+            background: none;
+            border: 1px solid #ff3b30;
+            color: #ff3b30;
+            margin-right: auto;
+        }
+        
+        /* ランク凡例 */
+        .rank-legend {
+            padding: 10px 12px;
+            background: #fafafa;
+            border-top: 1px solid #e5e5e7;
+            font-size: 9px;
+        }
+        
+        .rank-legend-title {
+            color: #86868b;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .rank-legend-items {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .rank-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            color: #6e6e73;
+        }
+        
+        .rank-legend-badge {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            color: white;
+            font-weight: 700;
+            font-size: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .rank-legend-badge.S { background: #9c27b0; }
+        .rank-legend-badge.A { background: #ff9800; }
+        .rank-legend-badge.B { background: #2196f3; }
+        .rank-legend-badge.C { background: #607d8b; }
+        
+        /* レスポンシブ・Notion埋め込み対応 */
+        @media (max-width: 900px) {
+            .sidebar { width: 280px; }
+            .hover-panel { width: 260px; }
+        }
+        
+        @media (max-width: 700px) {
+            .main-container { flex-direction: column; }
+            .sidebar { 
+                width: 100%; 
+                height: 45%; 
+                border-right: none;
+                border-bottom: 1px solid #e5e5e7;
+            }
+            .map-area { height: 55%; }
+            .hover-panel { 
+                top: auto; 
+                bottom: 10px; 
+                right: 10px; 
+                left: 10px; 
+                width: auto; 
+            }
+            .menu-stats { display: none; }
+        }
+        
+        /* Notion iframe用の最適化 */
+        @media (max-height: 600px) {
+            .menu-bar { height: 40px; }
+            .main-container { height: calc(100vh - 40px); }
+            .sidebar-header { padding: 8px; }
+            .university-item { padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- メニューバー -->
+    <div class="menu-bar">
+        <span class="menu-logo">🏥</span>
+        <span class="menu-title">医学部マップ</span>
+        <div class="menu-divider"></div>
+        
+        <button class="menu-btn" onclick="exportData()">📥 保存</button>
+        <button class="menu-btn" onclick="importData()">📤 読込</button>
+        <button class="menu-btn" onclick="clearAllMemos()">🗑️ 全削除</button>
+        
+        <div class="menu-stats">
+            <div class="menu-stat">国立:<span id="stat-national">0</span></div>
+            <div class="menu-stat">公立:<span id="stat-public">0</span></div>
+            <div class="menu-stat">私立:<span id="stat-private">0</span></div>
+            <div class="menu-stat">計:<span id="stat-total">0</span></div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <!-- サイドバー -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="search-input" placeholder="大学名・住所で検索...">
+                </div>
+                <div class="filter-section">
+                    <div class="filter-label">種別でフィルター（リスト＋マップ連動）</div>
+                    <div class="filter-tabs" id="type-filters">
+                        <button class="filter-tab active" data-filter="all">すべて</button>
+                        <button class="filter-tab" data-filter="national">国立</button>
+                        <button class="filter-tab" data-filter="public">公立</button>
+                        <button class="filter-tab" data-filter="private">私立</button>
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <div class="filter-label">ランクでフィルター</div>
+                    <div class="filter-tabs" id="rank-filters">
+                        <button class="filter-tab active" data-filter="all">すべて</button>
+                        <button class="filter-tab" data-filter="rankS">S</button>
+                        <button class="filter-tab" data-filter="rankA">A</button>
+                        <button class="filter-tab" data-filter="rankB">B</button>
+                        <button class="filter-tab" data-filter="rankC">C</button>
+                    </div>
+                </div>
+                <div class="filter-count">表示中: <span id="visible-count">82</span>校</div>
+            </div>
+            <div class="university-list" id="university-list"></div>
+            <div class="rank-legend">
+                <div class="rank-legend-title">偏差値ランク（松濤舎2025参考）</div>
+                <div class="rank-legend-items">
+                    <div class="rank-legend-item"><span class="rank-legend-badge S">S</span>70↑</div>
+                    <div class="rank-legend-item"><span class="rank-legend-badge A">A</span>66-69</div>
+                    <div class="rank-legend-item"><span class="rank-legend-badge B">B</span>63-65</div>
+                    <div class="rank-legend-item"><span class="rank-legend-badge C">C</span>63↓</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- マップエリア -->
+        <div class="map-area">
+            <div id="map"></div>
+            
+            <!-- ホバー詳細パネル -->
+            <div class="hover-panel" id="hover-panel">
+                <div class="hover-header" id="hover-header">
+                    <div class="hover-top">
+                        <div class="hover-name" id="hover-name"></div>
+                        <div class="hover-rank-badge" id="hover-rank-badge"></div>
+                    </div>
+                    <div class="hover-meta" id="hover-type-label"></div>
+                </div>
+                <div class="hover-body">
+                    <div class="hover-deviation-box">
+                        <div>
+                            <div class="hover-deviation-value" id="hover-deviation"></div>
+                            <div class="hover-deviation-label">偏差値</div>
+                        </div>
+                        <div class="hover-deviation-rank" id="hover-deviation-rank"></div>
+                    </div>
+                    <div class="hover-row">
+                        <span class="hover-icon">📍</span>
+                        <div>
+                            <div class="hover-label">住所</div>
+                            <div class="hover-value" id="hover-address"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="memo-section" id="hover-memo-section">
+                    <div class="memo-header">
+                        <span class="memo-title">📝 メモ</span>
+                        <button class="memo-edit-btn" id="hover-memo-edit">編集</button>
+                    </div>
+                    <div class="memo-content" id="hover-memo-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- メモ編集モーダル -->
+    <div class="modal-overlay" id="memo-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">メモを編集</span>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-uni-info">
+                    <div class="modal-uni-dot" id="modal-uni-dot"></div>
+                    <span class="modal-uni-name" id="modal-uni-name"></span>
+                    <span class="modal-uni-rank" id="modal-uni-rank"></span>
+                </div>
+                <textarea class="memo-textarea" id="memo-textarea" placeholder="メモを入力...&#10;例：オープンキャンパス 8/5、出願締切 12/15"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn delete" onclick="deleteMemo()">削除</button>
+                <button class="modal-btn cancel" onclick="closeModal()">キャンセル</button>
+                <button class="modal-btn save" onclick="saveMemo()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 大学データ
+        const universities = [
+            { id: 1, name: "北海道大学", address: "北海道札幌市北区北15条西7丁目", lat: 43.0717, lng: 141.3400, type: "national", deviation: 69.4, rank: "A" },
+            { id: 2, name: "旭川医科大学", address: "北海道旭川市緑が丘東2条1丁目1番1号", lat: 43.7308, lng: 142.3843, type: "national", deviation: 63.3, rank: "B" },
+            { id: 3, name: "札幌医科大学", address: "北海道札幌市中央区南1条西17丁目", lat: 43.0553, lng: 141.3285, type: "public", deviation: 65.5, rank: "B" },
+            { id: 4, name: "弘前大学", address: "青森県弘前市在府町5", lat: 40.5943, lng: 140.4641, type: "national", deviation: 61.2, rank: "C" },
+            { id: 5, name: "岩手医科大学", address: "岩手県盛岡市内丸19-1", lat: 39.7016, lng: 141.1544, type: "private", deviation: 63.1, rank: "B" },
+            { id: 6, name: "秋田大学", address: "秋田県秋田市本道1丁目1-1", lat: 39.7284, lng: 140.1024, type: "national", deviation: 63.7, rank: "B" },
+            { id: 7, name: "山形大学", address: "山形県山形市飯田西2丁目2-2", lat: 38.2408, lng: 140.3268, type: "national", deviation: 65.1, rank: "B" },
+            { id: 8, name: "東北大学", address: "宮城県仙台市青葉区星陵町2-1", lat: 38.2718, lng: 140.8500, type: "national", deviation: 70.2, rank: "S" },
+            { id: 9, name: "東北医科薬科大学", address: "宮城県仙台市青葉区小松島4丁目4-1", lat: 38.2786, lng: 140.9022, type: "private", deviation: 65.5, rank: "B" },
+            { id: 10, name: "福島県立医科大学", address: "福島県福島市光が丘1番地", lat: 37.7155, lng: 140.4741, type: "public", deviation: 65.3, rank: "B" },
+            { id: 11, name: "東京大学", address: "東京都文京区本郷7-3-1", lat: 35.7122, lng: 139.7626, type: "national", deviation: 76.7, rank: "S" },
+            { id: 12, name: "東京科学大学", address: "東京都文京区湯島1丁目5-45", lat: 35.7017, lng: 139.7597, type: "national", deviation: 72.6, rank: "S" },
+            { id: 13, name: "慶應義塾大学", address: "東京都新宿区信濃町35", lat: 35.6804, lng: 139.7173, type: "private", deviation: 73.0, rank: "S" },
+            { id: 14, name: "東京慈恵会医科大学", address: "東京都港区西新橋3丁目25−8", lat: 35.6621, lng: 139.7495, type: "private", deviation: 69.4, rank: "A" },
+            { id: 15, name: "日本医科大学", address: "東京都文京区千駄木1-1-5", lat: 35.7234, lng: 139.7587, type: "private", deviation: 68.6, rank: "A" },
+            { id: 16, name: "順天堂大学", address: "東京都文京区本郷2-1-1", lat: 35.7061, lng: 139.7633, type: "private", deviation: 68.5, rank: "A" },
+            { id: 17, name: "東京医科大学", address: "東京都新宿区新宿6-1-1", lat: 35.6969, lng: 139.7130, type: "private", deviation: 66.4, rank: "A" },
+            { id: 18, name: "東京女子医科大学", address: "東京都新宿区河田町8-1", lat: 35.6986, lng: 139.7219, type: "private", deviation: 61.5, rank: "C" },
+            { id: 19, name: "日本大学", address: "東京都板橋区大谷口上町30-1", lat: 35.7547, lng: 139.6882, type: "private", deviation: 63.8, rank: "B" },
+            { id: 20, name: "東邦大学", address: "東京都大田区大森西5丁目21-16", lat: 35.5786, lng: 139.7223, type: "private", deviation: 66.2, rank: "A" },
+            { id: 21, name: "帝京大学", address: "東京都板橋区加賀2-11-1", lat: 35.7567, lng: 139.7196, type: "private", deviation: 62.4, rank: "C" },
+            { id: 22, name: "昭和大学", address: "東京都品川区旗の台1-5-8", lat: 35.6062, lng: 139.7035, type: "private", deviation: 66.4, rank: "A" },
+            { id: 23, name: "杏林大学", address: "東京都三鷹市新川6-20-2", lat: 35.6897, lng: 139.5593, type: "private", deviation: 64.2, rank: "B" },
+            { id: 24, name: "横浜市立大学", address: "神奈川県横浜市金沢区福浦3丁目9", lat: 35.3739, lng: 139.6445, type: "public", deviation: 70.1, rank: "S" },
+            { id: 25, name: "聖マリアンナ医科大学", address: "神奈川県川崎市宮前区菅生2-16-1", lat: 35.5803, lng: 139.5475, type: "private", deviation: 62.7, rank: "C" },
+            { id: 26, name: "東海大学", address: "神奈川県伊勢原市下糟屋143", lat: 35.3954, lng: 139.2628, type: "private", deviation: 62.9, rank: "C" },
+            { id: 27, name: "北里大学", address: "神奈川県相模原市南区北里1-15-1", lat: 35.5324, lng: 139.4233, type: "private", deviation: 64.5, rank: "B" },
+            { id: 28, name: "防衛医科大学校", address: "埼玉県所沢市並木3-2", lat: 35.7866, lng: 139.4369, type: "national", deviation: 67.5, rank: "A" },
+            { id: 29, name: "埼玉医科大学", address: "埼玉県入間郡毛呂山町毛呂本郷38", lat: 35.9414, lng: 139.3147, type: "private", deviation: 61.5, rank: "C" },
+            { id: 30, name: "千葉大学", address: "千葉県千葉市中央区亥鼻1-8-1", lat: 35.6058, lng: 140.1008, type: "national", deviation: 70.4, rank: "S" },
+            { id: 31, name: "国際医療福祉大学", address: "千葉県成田市公津の杜4丁目3", lat: 35.7857, lng: 140.3212, type: "private", deviation: 67.9, rank: "A" },
+            { id: 32, name: "群馬大学", address: "群馬県前橋市昭和町3丁目39-22", lat: 36.4095, lng: 139.0656, type: "national", deviation: 65.2, rank: "B" },
+            { id: 33, name: "自治医科大学", address: "栃木県下野市薬師寺3311", lat: 36.4281, lng: 139.8620, type: "private", deviation: 65.8, rank: "B" },
+            { id: 34, name: "獨協医科大学", address: "栃木県下都賀郡壬生町北小林880", lat: 36.4537, lng: 139.8085, type: "private", deviation: 62.7, rank: "C" },
+            { id: 35, name: "筑波大学", address: "茨城県つくば市天王台1-1-1", lat: 36.1049, lng: 140.1027, type: "national", deviation: 68.0, rank: "A" },
+            { id: 36, name: "名古屋大学", address: "愛知県名古屋市昭和区鶴舞町65", lat: 35.1555, lng: 136.9197, type: "national", deviation: 71.4, rank: "S" },
+            { id: 37, name: "名古屋市立大学", address: "愛知県名古屋市瑞穂区瑞穂町字川澄1", lat: 35.1341, lng: 136.9391, type: "public", deviation: 68.6, rank: "A" },
+            { id: 38, name: "愛知医科大学", address: "愛知県長久手市岩作雁又1-1", lat: 35.1868, lng: 137.0549, type: "private", deviation: 64.4, rank: "B" },
+            { id: 39, name: "藤田医科大学", address: "愛知県豊明市沓掛町田楽ヶ窪1-98", lat: 35.0680, lng: 137.0158, type: "private", deviation: 66.1, rank: "A" },
+            { id: 40, name: "浜松医科大学", address: "静岡県浜松市東区半田山1-20-1", lat: 34.7469, lng: 137.7952, type: "national", deviation: 66.4, rank: "A" },
+            { id: 41, name: "新潟大学", address: "新潟県新潟市中央区旭町通1-757", lat: 37.9169, lng: 139.0240, type: "national", deviation: 67.9, rank: "A" },
+            { id: 42, name: "山梨大学", address: "山梨県中央市下河東1110", lat: 35.5927, lng: 138.5332, type: "national", deviation: 68.2, rank: "A" },
+            { id: 43, name: "信州大学", address: "長野県松本市旭3-1-1", lat: 36.2415, lng: 137.9647, type: "national", deviation: 66.9, rank: "A" },
+            { id: 44, name: "岐阜大学", address: "岐阜県岐阜市柳戸1-1", lat: 35.4387, lng: 136.7521, type: "national", deviation: 66.2, rank: "A" },
+            { id: 45, name: "三重大学", address: "三重県津市江戸橋2-174", lat: 34.7367, lng: 136.5228, type: "national", deviation: 66.6, rank: "A" },
+            { id: 46, name: "金沢大学", address: "石川県金沢市角間町", lat: 36.5464, lng: 136.7114, type: "national", deviation: 67.6, rank: "A" },
+            { id: 47, name: "金沢医科大学", address: "石川県河北郡内灘町大学1-1", lat: 36.6573, lng: 136.6520, type: "private", deviation: 61.2, rank: "C" },
+            { id: 48, name: "富山大学", address: "富山県富山市杉谷2630", lat: 36.6823, lng: 137.1645, type: "national", deviation: 64.7, rank: "B" },
+            { id: 49, name: "福井大学", address: "福井県吉田郡永平寺町松岡下合月23-3", lat: 36.0570, lng: 136.2219, type: "national", deviation: 65.4, rank: "B" },
+            { id: 50, name: "大阪大学", address: "大阪府吹田市山田丘2-2", lat: 34.8215, lng: 135.5220, type: "national", deviation: 73.5, rank: "S" },
+            { id: 51, name: "大阪公立大学", address: "大阪府大阪市阿倍野区旭町1-4-3", lat: 34.6423, lng: 135.5178, type: "public", deviation: 70.4, rank: "S" },
+            { id: 52, name: "大阪医科薬科大学", address: "大阪府高槻市大学町2-7", lat: 34.8491, lng: 135.6243, type: "private", deviation: 67.4, rank: "A" },
+            { id: 53, name: "近畿大学", address: "大阪府大阪狭山市大野東377-2", lat: 34.5014, lng: 135.5535, type: "private", deviation: 65.2, rank: "B" },
+            { id: 54, name: "関西医科大学", address: "大阪府枚方市新町2-5-1", lat: 34.8152, lng: 135.6545, type: "private", deviation: 67.9, rank: "A" },
+            { id: 55, name: "神戸大学", address: "兵庫県神戸市中央区楠町7-5-1", lat: 34.6873, lng: 135.1797, type: "national", deviation: 70.2, rank: "S" },
+            { id: 56, name: "兵庫医科大学", address: "兵庫県西宮市武庫川町1-1", lat: 34.7241, lng: 135.3699, type: "private", deviation: 64.9, rank: "B" },
+            { id: 57, name: "京都大学", address: "京都府京都市左京区吉田近衛町", lat: 35.0260, lng: 135.7788, type: "national", deviation: 75.3, rank: "S" },
+            { id: 58, name: "京都府立医科大学", address: "京都府京都市上京区梶井町465", lat: 35.0212, lng: 135.7692, type: "public", deviation: 69.4, rank: "A" },
+            { id: 59, name: "滋賀医科大学", address: "滋賀県大津市瀬田月輪町", lat: 34.9621, lng: 135.9623, type: "national", deviation: 65.8, rank: "B" },
+            { id: 60, name: "和歌山県立医科大学", address: "和歌山県和歌山市紀三井寺811-1", lat: 34.1863, lng: 135.1864, type: "public", deviation: 66.5, rank: "A" },
+            { id: 61, name: "奈良県立医科大学", address: "奈良県橿原市四条町840", lat: 34.4973, lng: 135.7849, type: "public", deviation: 70.2, rank: "S" },
+            { id: 62, name: "広島大学", address: "広島県東広島市鏡山1-3-2", lat: 34.4012, lng: 132.7126, type: "national", deviation: 68.0, rank: "A" },
+            { id: 63, name: "岡山大学", address: "岡山県岡山市北区鹿田町2-5-1", lat: 34.6661, lng: 133.9190, type: "national", deviation: 68.8, rank: "A" },
+            { id: 64, name: "川崎医科大学", address: "岡山県倉敷市松島577", lat: 34.5990, lng: 133.7720, type: "private", deviation: 61.2, rank: "C" },
+            { id: 65, name: "鳥取大学", address: "鳥取県米子市西町86", lat: 35.4417, lng: 133.3376, type: "national", deviation: 65.7, rank: "B" },
+            { id: 66, name: "島根大学", address: "島根県出雲市塩冶町89-1", lat: 35.3728, lng: 132.7554, type: "national", deviation: 62.6, rank: "C" },
+            { id: 67, name: "山口大学", address: "山口県宇部市南小串1-1-1", lat: 34.0022, lng: 131.2395, type: "national", deviation: 65.9, rank: "B" },
+            { id: 68, name: "愛媛大学", address: "愛媛県東温市志津川454", lat: 33.8206, lng: 132.8008, type: "national", deviation: 64.7, rank: "B" },
+            { id: 69, name: "香川大学", address: "香川県木田郡三木町池戸1750-1", lat: 34.2782, lng: 134.1382, type: "national", deviation: 65.1, rank: "B" },
+            { id: 70, name: "高知大学", address: "高知県南国市岡豊町小蓮", lat: 33.5709, lng: 133.6316, type: "national", deviation: 65.5, rank: "B" },
+            { id: 71, name: "徳島大学", address: "徳島県徳島市蔵本町3-18-15", lat: 34.0697, lng: 134.5387, type: "national", deviation: 65.3, rank: "B" },
+            { id: 72, name: "九州大学", address: "福岡県福岡市東区馬出3-1-1", lat: 33.6250, lng: 130.4238, type: "national", deviation: 71.3, rank: "S" },
+            { id: 73, name: "福岡大学", address: "福岡県福岡市城南区七隈8-19-1", lat: 33.5512, lng: 130.3619, type: "private", deviation: 63.6, rank: "B" },
+            { id: 74, name: "産業医科大学", address: "福岡県北九州市八幡西区医生ヶ丘1-1", lat: 33.8642, lng: 130.7295, type: "private", deviation: 65.2, rank: "B" },
+            { id: 75, name: "久留米大学", address: "福岡県久留米市旭町67", lat: 33.3101, lng: 130.5114, type: "private", deviation: 64.3, rank: "B" },
+            { id: 76, name: "大分大学", address: "大分県由布市挾間町医大ケ丘1-1", lat: 33.2183, lng: 131.5338, type: "national", deviation: 64.7, rank: "B" },
+            { id: 77, name: "佐賀大学", address: "佐賀県佐賀市鍋島5-1-1", lat: 33.2422, lng: 130.2677, type: "national", deviation: 64.6, rank: "B" },
+            { id: 78, name: "長崎大学", address: "長崎県長崎市坂本1-12-4", lat: 32.7704, lng: 129.8673, type: "national", deviation: 67.0, rank: "A" },
+            { id: 79, name: "宮崎大学", address: "宮崎県宮崎市清武町木原5200", lat: 31.8327, lng: 131.4048, type: "national", deviation: 65.2, rank: "B" },
+            { id: 80, name: "熊本大学", address: "熊本県熊本市中央区本荘1-1-1", lat: 32.7900, lng: 130.7039, type: "national", deviation: 67.2, rank: "A" },
+            { id: 81, name: "鹿児島大学", address: "鹿児島県鹿児島市桜ヶ丘8-35-1", lat: 31.5561, lng: 130.5458, type: "national", deviation: 66.4, rank: "A" },
+            { id: 82, name: "琉球大学", address: "沖縄県西原町字上原207", lat: 26.2469, lng: 127.7661, type: "national", deviation: 64.7, rank: "B" }
+        ];
+        
+        // 状態管理
+        let memos = JSON.parse(localStorage.getItem('medicalMemos') || '{}');
+        let currentUniId = null;
+        let selectedUniId = null;
+        let markers = {};
+        let currentTypeFilter = 'all';
+        let currentRankFilter = 'all';
+        
+        // カウント
+        document.getElementById("stat-national").textContent = universities.filter(u => u.type === "national").length;
+        document.getElementById("stat-public").textContent = universities.filter(u => u.type === "public").length;
+        document.getElementById("stat-private").textContent = universities.filter(u => u.type === "private").length;
+        document.getElementById("stat-total").textContent = universities.length;
+        
+        // マップ初期化
+        const map = L.map('map').setView([36.5, 138.0], 5);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '©OSM ©CARTO',
+            maxZoom: 18
+        }).addTo(map);
+        
+        // アイコン作成
+        function createIcon(uni, isSelected = false) {
+            const colors = { national: '#0071e3', public: '#34c759', private: '#ff3b30' };
+            const size = isSelected ? 28 : 22;
+            return L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="width:${size}px;height:${size}px;background:${colors[uni.type]};border-radius:50%;border:${isSelected?3:2}px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:${isSelected?11:9}px;font-weight:700;color:white;">${uni.rank}</div>`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+        
+        // マーカー追加
+        universities.forEach(uni => {
+            const marker = L.marker([uni.lat, uni.lng], { icon: createIcon(uni) });
+            marker.on('mouseover', () => showHoverPanel(uni));
+            marker.on('mouseout', hideHoverPanel);
+            marker.on('click', () => selectUniversity(uni.id));
+            marker.addTo(map);
+            markers[uni.id] = marker;
+        });
+        
+        // フィルター適用（リスト＋マップ連動）
+        function applyFilters() {
+            const searchQuery = document.getElementById('search-input').value.toLowerCase();
+            let filtered = universities;
+            
+            // 種別フィルター
+            if (currentTypeFilter !== 'all') {
+                filtered = filtered.filter(u => u.type === currentTypeFilter);
+            }
+            
+            // ランクフィルター
+            if (currentRankFilter !== 'all') {
+                const rank = currentRankFilter.replace('rank', '');
+                filtered = filtered.filter(u => u.rank === rank);
+            }
+            
+            // 検索
+            if (searchQuery) {
+                filtered = filtered.filter(u => 
+                    u.name.toLowerCase().includes(searchQuery) || 
+                    u.address.toLowerCase().includes(searchQuery)
+                );
+            }
+            
+            const filteredIds = new Set(filtered.map(u => u.id));
+            
+            // マーカー表示/非表示
+            universities.forEach(uni => {
+                if (filteredIds.has(uni.id)) {
+                    if (!map.hasLayer(markers[uni.id])) {
+                        markers[uni.id].addTo(map);
+                    }
+                } else {
+                    if (map.hasLayer(markers[uni.id])) {
+                        map.removeLayer(markers[uni.id]);
+                    }
+                }
+            });
+            
+            // カウント更新
+            document.getElementById('visible-count').textContent = filtered.length;
+            
+            // リスト更新
+            renderList(filtered);
+        }
+        
+        // リスト描画
+        function renderList(filtered) {
+            const list = document.getElementById('university-list');
+            list.innerHTML = '';
+            
+            filtered.sort((a, b) => b.deviation - a.deviation);
+            
+            const typeLabels = { national: '国立', public: '公立', private: '私立' };
+            
+            filtered.forEach(uni => {
+                const hasMemo = memos[uni.id];
+                const item = document.createElement('div');
+                item.className = `university-item${selectedUniId === uni.id ? ' selected' : ''}${hasMemo ? ' has-memo' : ''}`;
+                item.innerHTML = `
+                    <div class="uni-header">
+                        <div class="uni-dot ${uni.type}"></div>
+                        <span class="uni-name">${uni.name}</span>
+                        <div class="uni-badges">
+                            <span class="uni-type ${uni.type}">${typeLabels[uni.type]}</span>
+                            <span class="uni-rank ${uni.rank}">${uni.rank}</span>
+                        </div>
+                    </div>
+                    <div class="uni-info"><span class="uni-deviation">偏差値 ${uni.deviation}</span></div>
+                    <div class="uni-address">${uni.address}</div>
+                    ${hasMemo ? `<div class="uni-memo-preview">${memos[uni.id].substring(0, 25)}${memos[uni.id].length > 25 ? '...' : ''}</div>` : ''}
+                `;
+                item.addEventListener('click', () => selectUniversity(uni.id));
+                item.addEventListener('mouseenter', () => showHoverPanel(uni));
+                item.addEventListener('mouseleave', hideHoverPanel);
+                list.appendChild(item);
+            });
+        }
+        
+        // 大学選択
+        function selectUniversity(id) {
+            const uni = universities.find(u => u.id === id);
+            if (!uni) return;
+            
+            if (selectedUniId && markers[selectedUniId]) {
+                const prev = universities.find(u => u.id === selectedUniId);
+                markers[selectedUniId].setIcon(createIcon(prev, false));
+            }
+            
+            selectedUniId = id;
+            markers[id].setIcon(createIcon(uni, true));
+            map.setView([uni.lat, uni.lng], 10);
+            showHoverPanel(uni, true);
+            applyFilters();
+        }
+        
+        // ホバーパネル
+        function showHoverPanel(uni, persistent = false) {
+            const panel = document.getElementById('hover-panel');
+            const typeLabels = { national: '国立', public: '公立', private: '私立' };
+            
+            document.getElementById('hover-header').className = `hover-header ${uni.type}`;
+            document.getElementById('hover-name').textContent = uni.name;
+            document.getElementById('hover-rank-badge').textContent = `${uni.rank}ランク`;
+            document.getElementById('hover-type-label').textContent = typeLabels[uni.type];
+            document.getElementById('hover-deviation').textContent = uni.deviation;
+            document.getElementById('hover-deviation-rank').textContent = uni.rank;
+            document.getElementById('hover-deviation-rank').className = `hover-deviation-rank ${uni.rank}`;
+            document.getElementById('hover-address').textContent = uni.address;
+            
+            const memoContent = document.getElementById('hover-memo-content');
+            memoContent.textContent = memos[uni.id] || 'メモはありません';
+            memoContent.className = memos[uni.id] ? 'memo-content' : 'memo-empty';
+            
+            currentUniId = uni.id;
+            panel.classList.add('visible');
+        }
+        
+        function hideHoverPanel() {
+            if (selectedUniId === currentUniId) return;
+            document.getElementById('hover-panel').classList.remove('visible');
+        }
+        
+        // フィルタータブ
+        document.querySelectorAll('#type-filters .filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('#type-filters .filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                currentTypeFilter = this.dataset.filter;
+                applyFilters();
+            });
+        });
+        
+        document.querySelectorAll('#rank-filters .filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('#rank-filters .filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                currentRankFilter = this.dataset.filter;
+                applyFilters();
+            });
+        });
+        
+        document.getElementById('search-input').addEventListener('input', applyFilters);
+        
+        // メモ機能
+        document.getElementById('hover-memo-edit').addEventListener('click', () => {
+            if (!currentUniId) return;
+            openModal(currentUniId);
+        });
+        
+        function openModal(id) {
+            const uni = universities.find(u => u.id === id);
+            if (!uni) return;
+            document.getElementById('modal-uni-dot').className = `modal-uni-dot ${uni.type}`;
+            document.getElementById('modal-uni-name').textContent = uni.name;
+            document.getElementById('modal-uni-rank').textContent = uni.rank;
+            document.getElementById('modal-uni-rank').className = `modal-uni-rank ${uni.rank}`;
+            document.getElementById('memo-textarea').value = memos[id] || '';
+            currentUniId = id;
+            document.getElementById('memo-modal').classList.add('visible');
+        }
+        
+        function closeModal() {
+            document.getElementById('memo-modal').classList.remove('visible');
+        }
+        
+        function saveMemo() {
+            const text = document.getElementById('memo-textarea').value.trim();
+            if (text) memos[currentUniId] = text;
+            else delete memos[currentUniId];
+            localStorage.setItem('medicalMemos', JSON.stringify(memos));
+            closeModal();
+            applyFilters();
+            const uni = universities.find(u => u.id === currentUniId);
+            if (uni) showHoverPanel(uni, true);
+        }
+        
+        function deleteMemo() {
+            delete memos[currentUniId];
+            localStorage.setItem('medicalMemos', JSON.stringify(memos));
+            closeModal();
+            applyFilters();
+            const uni = universities.find(u => u.id === currentUniId);
+            if (uni) showHoverPanel(uni, true);
+        }
+        
+        function exportData() {
+            const blob = new Blob([JSON.stringify(memos, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'medical_memos.json';
+            a.click();
+        }
+        
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    try {
+                        memos = JSON.parse(ev.target.result);
+                        localStorage.setItem('medicalMemos', JSON.stringify(memos));
+                        applyFilters();
+                        alert('インポート完了');
+                    } catch { alert('読み込み失敗'); }
+                };
+                reader.readAsText(e.target.files[0]);
+            };
+            input.click();
+        }
+        
+        function clearAllMemos() {
+            if (confirm('すべてのメモを削除しますか？')) {
+                memos = {};
+                localStorage.setItem('medicalMemos', JSON.stringify(memos));
+                applyFilters();
+            }
+        }
+        
+        // 初期表示
+        applyFilters();
+    </script>
+</body>
+</html>
