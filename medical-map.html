@@ -941,12 +941,23 @@
         document.getElementById("stat-private").textContent = universities.filter(u => u.type === "private").length;
         document.getElementById("stat-total").textContent = universities.length;
         
-        // マップ初期化
-        const map = L.map('map').setView([36.5, 138.0], 5);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '©OSM ©CARTO',
-            maxZoom: 18
-        }).addTo(map);
+        // マップ初期化（日本周辺に制限）
+            const japanBounds = L.latLngBounds(
+                L.latLng(24.0, 122.0),  // 南西端（沖縄周辺）
+                L.latLng(46.0, 154.0)   // 北東端（北海道周辺）
+            );
+
+            const map = L.map('map', {
+                maxBounds: japanBounds,
+                maxBoundsViscosity: 1.0,
+                minZoom: 5,
+                maxZoom: 18
+            }).setView([36.5, 138.0], 5);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '©OSM ©CARTO',
+                maxZoom: 18
+            }).addTo(map);
         
         // アイコン作成
         function createIcon(uni, isSelected = false) {
